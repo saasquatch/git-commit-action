@@ -1,0 +1,24 @@
+name: "SaaSquatch Git Commit Action"
+description: "Create commits using the GitHub API"
+inputs:
+  files:
+    description: "Files to be committed"
+    required: true
+  message:
+    description: "Commit message"
+    required: true
+  repository-name:
+    description: "Repository name"
+    required: true
+  repository-owner:
+    description: "Repository owner"
+    required: true
+  branch:
+    description: "Branch to commit to"
+    required: true
+outputs:
+  success:
+    description: "Whether or not the commits succeeded"
+runs:
+  using: "node20"
+  main: "dist/index.js"
