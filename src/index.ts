@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as core from "@actions/core";
 import { readFile } from "fs/promises";
+import { existsSync } from "fs";
 
 export const requiredEnv = (key: string) => {
   const val = process.env[key];
@@ -53,13 +54,16 @@ async function main(): Promise<void> {
   } = await axios({ url: currentCommitUrl, headers });
 
   const treeInput = await Promise.all(
-    files.map(async (file) => ({
-      path: file,
-      // support deleted files by checking for existence and setting sha:null
-      content: await readFile(file, "utf8"),
-      mode: MODES.FILE,
-      type: TYPE.BLOB,
-    })),
+    files.map(async (file) => {
+      return {
+        path: file,
+        mode: MODES.FILE,
+        type: TYPE.BLOB,
+        ...(existsSync(file)
+          ? { content: await readFile(file, "utf8") }
+          : { sha: null }),
+      };
+    }),
   );
 
   // Create a tree to edit the content of the repository
