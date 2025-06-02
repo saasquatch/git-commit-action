@@ -12880,7 +12880,7 @@ var require_core = __commonJS({
       process.env["PATH"] = `${inputPath}${path.delimiter}${process.env["PATH"]}`;
     }
     exports2.addPath = addPath;
-    function getInput(name, options) {
+    function getInput2(name, options) {
       const val = process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] || "";
       if (options && options.required && !val) {
         throw new Error(`Input required and not supplied: ${name}`);
@@ -12890,19 +12890,19 @@ var require_core = __commonJS({
       }
       return val.trim();
     }
-    exports2.getInput = getInput;
-    function getMultilineInput(name, options) {
-      const inputs = getInput(name, options).split("\n").filter((x) => x !== "");
+    exports2.getInput = getInput2;
+    function getMultilineInput2(name, options) {
+      const inputs = getInput2(name, options).split("\n").filter((x) => x !== "");
       if (options && options.trimWhitespace === false) {
         return inputs;
       }
       return inputs.map((input) => input.trim());
     }
-    exports2.getMultilineInput = getMultilineInput;
+    exports2.getMultilineInput = getMultilineInput2;
     function getBooleanInput(name, options) {
       const trueValue = ["true", "True", "TRUE"];
       const falseValue = ["false", "False", "FALSE"];
-      const val = getInput(name, options);
+      const val = getInput2(name, options);
       if (trueValue.includes(val))
         return true;
       if (falseValue.includes(val))
@@ -12924,11 +12924,11 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
       (0, command_1.issue)("echo", enabled ? "on" : "off");
     }
     exports2.setCommandEcho = setCommandEcho;
-    function setFailed(message) {
+    function setFailed2(message) {
       process.exitCode = ExitCode.Failure;
       error(message);
     }
-    exports2.setFailed = setFailed;
+    exports2.setFailed = setFailed2;
     function isDebug() {
       return process.env["RUNNER_DEBUG"] === "1";
     }
@@ -16331,7 +16331,7 @@ var {
 } = axios_default;
 
 // src/index.ts
-var import_core = __toESM(require_core());
+var core = __toESM(require_core());
 var import_promises = require("fs/promises");
 var requiredEnv = (key) => {
   const val = process.env[key];
@@ -16344,10 +16344,10 @@ var MODES = { FILE: "100644", FOLDER: "040000" };
 var TYPE = { BLOB: "blob", TREE: "tree" };
 async function main() {
   const GITHUB_TOKEN = requiredEnv("GITHUB_TOKEN");
-  const repo = import_core.default.getInput("repository");
-  const branch = import_core.default.getInput("branch");
-  const message = import_core.default.getInput("message");
-  const files = import_core.default.getMultilineInput("files");
+  const repo = core.getInput("repository");
+  const branch = core.getInput("branch");
+  const message = core.getInput("message");
+  const files = core.getMultilineInput("files");
   const [repoOwner, repoName] = repo.split("/");
   const commitsUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/commits`;
   const treeUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/trees`;
@@ -16413,7 +16413,7 @@ main().catch((e) => {
     null,
     2
   );
-  import_core.default.setFailed(`Action failed: ${formattedError}`);
+  core.setFailed(`Action failed: ${formattedError}`);
 });
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
