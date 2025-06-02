@@ -12,7 +12,7 @@ export const requiredEnv = (key: string) => {
 };
 
 const MODES = { FILE: "100644", FOLDER: "040000" };
-const TYPE = { BLOB: "blob", TREE: "tree" };
+const TYPE = { BLOB: "blob", TREE: "tree", COMMIT: "commit" };
 
 async function main(): Promise<void> {
   const GITHUB_TOKEN = requiredEnv("GITHUB_TOKEN");
@@ -21,18 +21,18 @@ async function main(): Promise<void> {
   const branch = core.getInput("branch");
   const message = core.getInput("message");
   const longMessage = core.getInput("long-message");
+  const tag = core.getInput("tag");
+  const tagMessage = core.getInput("tag-message");
   const files = core.getMultilineInput("files");
 
   const [repoOwner, repoName] = repo.split("/");
 
-  // See: https://docs.github.com/en/free-pro-team@latest/rest/reference/git#commits
-  const commitsUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/commits`;
-
-  // See: https://docs.github.com/en/free-pro-team@latest/rest/reference/git#trees
-  const treeUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/trees`;
-
-  // See: https://docs.github.com/en/free-pro-team@latest/rest/reference/git#get-a-reference
-  const refUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/refs/heads/${branch}`;
+  const baseUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git`;
+  const commitsUrl = `${baseUrl}/commits`;
+  const treeUrl = `${baseUrl}/trees`;
+  const refUrl = `${baseUrl}/refs/heads/${branch}`;
+  const tagObjectUrl = `${baseUrl}/tags`;
+  const tagRefUrl = `${baseUrl}/refs`;
 
   const headers = {
     Accept: "application/vnd.github.v3+json",
@@ -98,6 +98,36 @@ async function main(): Promise<void> {
     headers,
     data: { sha: newCommitSha },
   });
+
+  if (tag) {
+    if (!tagMessage) {
+      throw new Error("tag-message is required if tag is specified");
+    }
+
+    const {
+      data: { sha: newTagSha },
+    } = await axios({
+      url: tagObjectUrl,
+      method: "POST",
+      headers,
+      data: {
+        tag,
+        message: tagMessage,
+        object: newCommitSha,
+        type: TYPE.COMMIT,
+      },
+    });
+
+    await axios({
+      url: tagRefUrl,
+      method: "POST",
+      headers,
+      data: {
+        ref: `refs/tags/${tag}`,
+        sha: newTagSha,
+      },
+    });
+  }
 }
 
 main().catch((e) => {

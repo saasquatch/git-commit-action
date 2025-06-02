@@ -8,7 +8,13 @@ inputs:
     description: "Commit message"
     required: true
   long-message:
-    description: "Long commit message"
+    description: "Optional long commit message"
+    required: false
+  tag:
+    description: "Optionally create a tag for this commit"
+    required: false
+  tag-message:
+    description: "Tag message (required if tag is specified)"
     required: false
   repository:
     description: "Repository with both owner and repo name"
