@@ -16348,6 +16348,7 @@ async function main() {
   const repo = core.getInput("repository");
   const branch = core.getInput("branch");
   const message = core.getInput("message");
+  const longMessage = core.getInput("long-message");
   const files = core.getMultilineInput("files");
   const [repoOwner, repoName] = repo.split("/");
   const commitsUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/commits`;
@@ -16393,7 +16394,9 @@ async function main() {
     method: "POST",
     headers,
     data: {
-      message,
+      message: longMessage ? `${message}
+
+${longMessage}` : message,
       tree: newTreeSha,
       parents: [currentCommitSha]
     }
