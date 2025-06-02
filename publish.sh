@@ -20,4 +20,4 @@ npm run build
 git add package.json package-lock.json dist
 git commit -v -m "chore: publish version $new_version"
 git tag -a -m "v$new_version" "v$new_version"
-# git push --follow-tags
+git push --follow-tags

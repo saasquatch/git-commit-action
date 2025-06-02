@@ -16,11 +16,12 @@ const TYPE = { BLOB: "blob", TREE: "tree" };
 async function main(): Promise<void> {
   const GITHUB_TOKEN = requiredEnv("GITHUB_TOKEN");
 
-  const repoOwner = core.getInput("repository-owner");
-  const repoName = core.getInput("repository-name");
+  const repo = core.getInput("repository");
   const branch = core.getInput("branch");
   const message = core.getInput("message");
   const files = core.getMultilineInput("files");
+
+  const [repoOwner, repoName] = repo.split("/");
 
   // See: https://docs.github.com/en/free-pro-team@latest/rest/reference/git#commits
   const commitsUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/commits`;

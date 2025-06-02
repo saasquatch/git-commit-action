@@ -7,11 +7,8 @@ inputs:
   message:
     description: "Commit message"
     required: true
-  repository-name:
-    description: "Repository name"
-    required: true
-  repository-owner:
-    description: "Repository owner"
+  repository:
+    description: "Repository with both owner and repo name"
     required: true
   branch:
     description: "Branch to commit to"
