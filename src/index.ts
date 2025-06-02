@@ -1,5 +1,5 @@
 import axios from "axios";
-import core from "@actions/core";
+import * as core from "@actions/core";
 import { readFile } from "fs/promises";
 
 export const requiredEnv = (key: string) => {
