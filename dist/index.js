@@ -16344,11 +16344,11 @@ var MODES = { FILE: "100644", FOLDER: "040000" };
 var TYPE = { BLOB: "blob", TREE: "tree" };
 async function main() {
   const GITHUB_TOKEN = requiredEnv("GITHUB_TOKEN");
-  const repoOwner = import_core.default.getInput("repository-owner");
-  const repoName = import_core.default.getInput("repository-name");
+  const repo = import_core.default.getInput("repository");
   const branch = import_core.default.getInput("branch");
   const message = import_core.default.getInput("message");
   const files = import_core.default.getMultilineInput("files");
+  const [repoOwner, repoName] = repo.split("/");
   const commitsUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/commits`;
   const treeUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/trees`;
   const refUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git/refs/heads/${branch}`;
