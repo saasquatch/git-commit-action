@@ -16333,6 +16333,7 @@ var {
 // src/index.ts
 var core = __toESM(require_core());
 var import_promises = require("fs/promises");
+var import_fs = require("fs");
 var requiredEnv = (key) => {
   const val = process.env[key];
   if (typeof val !== "string" || val.length === 0) {
@@ -16368,13 +16369,14 @@ async function main() {
     }
   } = await axios_default({ url: currentCommitUrl, headers });
   const treeInput = await Promise.all(
-    files.map(async (file) => ({
-      path: file,
-      // support deleted files by checking for existence and setting sha:null
-      content: await (0, import_promises.readFile)(file, "utf8"),
-      mode: MODES.FILE,
-      type: TYPE.BLOB
-    }))
+    files.map(async (file) => {
+      return {
+        path: file,
+        mode: MODES.FILE,
+        type: TYPE.BLOB,
+        ...(0, import_fs.existsSync)(file) ? { content: await (0, import_promises.readFile)(file, "utf8") } : { sha: null }
+      };
+    })
   );
   const {
     data: { sha: newTreeSha }
