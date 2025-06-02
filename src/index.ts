@@ -20,6 +20,7 @@ async function main(): Promise<void> {
   const repo = core.getInput("repository");
   const branch = core.getInput("branch");
   const message = core.getInput("message");
+  const longMessage = core.getInput("long-message");
   const files = core.getMultilineInput("files");
 
   const [repoOwner, repoName] = repo.split("/");
@@ -84,7 +85,7 @@ async function main(): Promise<void> {
     method: "POST",
     headers,
     data: {
-      message,
+      message: longMessage ? `${message}\n\n${longMessage}` : message,
       tree: newTreeSha,
       parents: [currentCommitSha],
     },

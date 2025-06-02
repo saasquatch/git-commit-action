@@ -7,6 +7,9 @@ inputs:
   message:
     description: "Commit message"
     required: true
+  long-message:
+    description: "Long commit message"
+    required: false
   repository:
     description: "Repository with both owner and repo name"
     required: true
