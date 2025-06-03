@@ -36,6 +36,7 @@ const newShaSchema = z.object({
 
 async function parseRes<T extends $ZodType>(
   res: Dispatcher.ResponseData<null>,
+  url: string,
   schema: T,
 ): Promise<SchemaOutput<T>> {
   return new Promise((resolve, reject) => {
@@ -45,7 +46,18 @@ async function parseRes<T extends $ZodType>(
         .then((body) => parseAsync(schema, body))
         .then((parsed) => resolve(parsed));
     } else {
-      reject(`Invalid status ${res.statusCode}`);
+      res.body
+        .text()
+        .then((text) => {
+          reject(
+            `Request to ${url} failed: invalid status ${res.statusCode}: ${text}`,
+          );
+        })
+        .catch(() => {
+          reject(
+            `Request to ${url} failed: invalid status ${res.statusCode} (text parsing failed)`,
+          );
+        });
     }
   });
 }
@@ -91,16 +103,21 @@ async function main(): Promise<void> {
   const tagObjectUrl = `${baseUrl}/tags`;
   const tagRefUrl = `${baseUrl}/refs`;
 
-  const headers = {
+  const getHeaders = {
     Accept: "application/vnd.github.v3+json",
     Authorization: `Bearer ${GITHUB_TOKEN}`,
+  };
+
+  const postHeaders = {
+    ...getHeaders,
+    "Content-Type": "application/json",
   };
 
   // Get the sha of the last commit on selected branch
   const {
     object: { sha: currentCommitSha },
-  } = await request(refUrl, { headers }).then((res) =>
-    parseRes(res, branchRefSchema),
+  } = await request(refUrl, { headers: getHeaders }).then((res) =>
+    parseRes(res, refUrl, branchRefSchema),
   );
 
   // Get the sha of the root tree on the commit retrieved previously
@@ -108,8 +125,8 @@ async function main(): Promise<void> {
 
   const {
     tree: { sha: treeSha },
-  } = await request(currentCommitUrl, { headers }).then((res) =>
-    parseRes(res, currentCommitSchema),
+  } = await request(currentCommitUrl, { headers: getHeaders }).then((res) =>
+    parseRes(res, currentCommitUrl, currentCommitSchema),
   );
 
   const treeInput = await Promise.all(
@@ -129,51 +146,51 @@ async function main(): Promise<void> {
   // Create a tree to edit the content of the repository
   const { sha: newTreeSha } = await request(treeUrl, {
     method: "POST",
-    headers,
+    headers: postHeaders,
     body: JSON.stringify({ base_tree: treeSha, tree: treeInput }),
-  }).then((res) => parseRes(res, newShaSchema));
+  }).then((res) => parseRes(res, treeUrl, newShaSchema));
 
   // Create a commit that uses the tree created above
   const { sha: newCommitSha } = await request(commitsUrl, {
     method: "POST",
-    headers,
+    headers: postHeaders,
     body: JSON.stringify({
       message: longMessage ? `${message}\n\n${longMessage}` : message,
       tree: newTreeSha,
       parents: [currentCommitSha],
     }),
-  }).then((res) => parseRes(res, newShaSchema));
+  }).then((res) => parseRes(res, commitsUrl, newShaSchema));
 
   // Make the selected branch point to the created commit
   await request(refUrl, {
     method: "POST",
-    headers,
+    headers: postHeaders,
     body: JSON.stringify({ sha: newCommitSha }),
-  }).then((res) => parseRes(res, z.any()));
+  }).then((res) => parseRes(res, refUrl, z.any()));
 
   if (tag) {
     // Create a new tag object pointing to the commit we just made
     // and with the specified tag + message
     const { sha: newTagSha } = await request(tagObjectUrl, {
       method: "POST",
-      headers,
+      headers: postHeaders,
       body: JSON.stringify({
         tag,
         message: tagMessage,
         object: newCommitSha,
         type: TYPE.COMMIT,
       }),
-    }).then((res) => parseRes(res, newShaSchema));
+    }).then((res) => parseRes(res, tagObjectUrl, newShaSchema));
 
     // Create a new tag ref pointing to the tag object we just made
     await request(tagRefUrl, {
       method: "POST",
-      headers,
+      headers: postHeaders,
       body: JSON.stringify({
         ref: `refs/tags/${tag}`,
         sha: newTagSha,
       }),
-    }).then((res) => parseRes(res, z.any()));
+    }).then((res) => parseRes(res, tagRefUrl, z.any()));
   }
 }
 
