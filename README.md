@@ -31,3 +31,11 @@ steps:
       repository: ${{ github.repository }}
       branch: ${{ github.ref_name }}
 ```
+
+## Rationale
+
+The reason why this action is necessary is because creating commits in CI on the command
+line with the `git` program results in un-verified commits, even if you specify the
+GitHub actions email and everything. In repositories that require verified commits this
+is a problem. Creating the commits using the GitHub REST API and authorizing with the
+`$GITHUB_TOKEN` results in signed commits which pass the repository rulesets.
