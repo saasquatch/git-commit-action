@@ -3,51 +3,84 @@
  * Originally based on https://gist.github.com/quilicicf/41e241768ab8eeec1529869777e996f0
  *
  */
-import axios from "axios";
-import * as core from "@actions/core";
-import { readFile } from "fs/promises";
+import { getInput, getMultilineInput, setFailed } from "@actions/core";
 import { existsSync } from "fs";
+import { readFile } from "fs/promises";
+import { parseAsync, z } from "zod/v4-mini";
+import type { $ZodType, output as SchemaOutput } from "zod/v4/core";
 
-export const requiredEnv = (key: string) => {
-  const val = process.env[key];
-  if (typeof val !== "string" || val.length === 0) {
-    throw new Error(`Missing required environment variable: "${key}"`);
-  }
-  return val;
-};
+// FIXME: once Node 22 is available on GitHub Actions `undici` will be included
+// in the Node runtime by default and we can uninstall this dependency
+//
+// https://nodejs.org/en/learn/getting-started/fetch
+import { request, type Dispatcher } from "undici";
 
 const MODES = { FILE: "100644", FOLDER: "040000" };
 const TYPE = { BLOB: "blob", TREE: "tree", COMMIT: "commit" };
 
-async function main(): Promise<void> {
-  const GITHUB_TOKEN = requiredEnv("GITHUB_TOKEN");
+const branchRefSchema = z.object({
+  object: z.object({
+    sha: z.string(),
+  }),
+});
 
-  const repo = core.getInput("repository");
-  const branch = core.getInput("branch");
-  const message = core.getInput("message");
-  const longMessage = core.getInput("long-message");
-  const tag = core.getInput("tag");
-  const tagMessage = core.getInput("tag-message");
-  const files = core.getMultilineInput("files");
+const currentCommitSchema = z.object({
+  tree: z.object({
+    sha: z.string(),
+  }),
+});
+
+const newShaSchema = z.object({
+  sha: z.string(),
+});
+
+async function parseRes<T extends $ZodType>(
+  res: Dispatcher.ResponseData<null>,
+  schema: T,
+): Promise<SchemaOutput<T>> {
+  return new Promise((resolve, reject) => {
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      res.body
+        .json()
+        .then((body) => parseAsync(schema, body))
+        .then((parsed) => resolve(parsed));
+    } else {
+      reject(`Invalid status ${res.statusCode}`);
+    }
+  });
+}
+
+async function main(): Promise<void> {
+  const GITHUB_TOKEN = process.env["GITHUB_TOKEN"];
+  if (!GITHUB_TOKEN) {
+    setFailed(`Missing required environment variable "GITHUB_TOKEN"`);
+    return;
+  }
+
+  const repo = getInput("repository");
+  const branch = getInput("branch");
+  const message = getInput("message");
+  const longMessage = getInput("long-message");
+  const tag = getInput("tag");
+  const tagMessage = getInput("tag-message");
+  const files = getMultilineInput("files");
 
   // we'll check this first so that we don't create all the trees & commits
   // and stuff before erroring out at the tag step
   if (tag && !tagMessage) {
-    core.setFailed("`tag-message` is required if `tag` is specified");
+    setFailed("`tag-message` is required if `tag` is specified");
     return;
   }
 
   if (files.length === 0) {
-    core.setFailed("Must specifiy at least one file to stage & commit");
+    setFailed("Must specifiy at least one file to stage & commit");
     return;
   }
 
   const [repoOwner, repoName] = repo.split("/");
 
   if (!repoOwner || !repoName) {
-    core.setFailed(
-      `Failed to extract repo owner and name from string "${repo}"`,
-    );
+    setFailed(`Failed to extract repo owner and name from string "${repo}"`);
     return;
   }
 
@@ -65,18 +98,19 @@ async function main(): Promise<void> {
 
   // Get the sha of the last commit on selected branch
   const {
-    data: {
-      object: { sha: currentCommitSha },
-    },
-  } = await axios({ url: refUrl, headers });
+    object: { sha: currentCommitSha },
+  } = await request(refUrl, { headers }).then((res) =>
+    parseRes(res, branchRefSchema),
+  );
 
   // Get the sha of the root tree on the commit retrieved previously
   const currentCommitUrl = `${commitsUrl}/${currentCommitSha}`;
+
   const {
-    data: {
-      tree: { sha: treeSha },
-    },
-  } = await axios({ url: currentCommitUrl, headers });
+    tree: { sha: treeSha },
+  } = await request(currentCommitUrl, { headers }).then((res) =>
+    parseRes(res, currentCommitSchema),
+  );
 
   const treeInput = await Promise.all(
     files.map(async (file) => {
@@ -93,64 +127,53 @@ async function main(): Promise<void> {
   );
 
   // Create a tree to edit the content of the repository
-  const {
-    data: { sha: newTreeSha },
-  } = await axios({
-    url: treeUrl,
+  const { sha: newTreeSha } = await request(treeUrl, {
     method: "POST",
     headers,
-    data: { base_tree: treeSha, tree: treeInput },
-  });
+    body: JSON.stringify({ base_tree: treeSha, tree: treeInput }),
+  }).then((res) => parseRes(res, newShaSchema));
 
   // Create a commit that uses the tree created above
-  const {
-    data: { sha: newCommitSha },
-  } = await axios({
-    url: commitsUrl,
+  const { sha: newCommitSha } = await request(commitsUrl, {
     method: "POST",
     headers,
-    data: {
+    body: JSON.stringify({
       message: longMessage ? `${message}\n\n${longMessage}` : message,
       tree: newTreeSha,
       parents: [currentCommitSha],
-    },
-  });
+    }),
+  }).then((res) => parseRes(res, newShaSchema));
 
   // Make the selected branch point to the created commit
-  await axios({
-    url: refUrl,
+  await request(refUrl, {
     method: "POST",
     headers,
-    data: { sha: newCommitSha },
-  });
+    body: JSON.stringify({ sha: newCommitSha }),
+  }).then((res) => parseRes(res, z.any()));
 
   if (tag) {
     // Create a new tag object pointing to the commit we just made
     // and with the specified tag + message
-    const {
-      data: { sha: newTagSha },
-    } = await axios({
-      url: tagObjectUrl,
+    const { sha: newTagSha } = await request(tagObjectUrl, {
       method: "POST",
       headers,
-      data: {
+      body: JSON.stringify({
         tag,
         message: tagMessage,
         object: newCommitSha,
         type: TYPE.COMMIT,
-      },
-    });
+      }),
+    }).then((res) => parseRes(res, newShaSchema));
 
     // Create a new tag ref pointing to the tag object we just made
-    await axios({
-      url: tagRefUrl,
+    await request(tagRefUrl, {
       method: "POST",
       headers,
-      data: {
+      body: JSON.stringify({
         ref: `refs/tags/${tag}`,
         sha: newTagSha,
-      },
-    });
+      }),
+    }).then((res) => parseRes(res, z.any()));
   }
 }
 
@@ -161,5 +184,5 @@ main().catch((e) => {
     2,
   );
 
-  core.setFailed(`Action failed: ${formattedError}`);
+  setFailed(`Action failed: ${formattedError}`);
 });
