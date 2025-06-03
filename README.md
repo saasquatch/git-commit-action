@@ -1,6 +1,6 @@
 # Git Commit (+tag) Action
 
-This action creates a commit using the action's `$GITHUB_TOKEN`, pushes it to the
+This action creates a commit using the workflow's `$GITHUB_TOKEN`, pushes it to the
 specified branch, and optionally creates a tag pointing to the newly created commit.
 
 ## Example usage
