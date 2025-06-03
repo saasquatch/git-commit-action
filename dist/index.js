@@ -16352,7 +16352,21 @@ async function main() {
   const tag = core.getInput("tag");
   const tagMessage = core.getInput("tag-message");
   const files = core.getMultilineInput("files");
+  if (tag && !tagMessage) {
+    core.setFailed("`tag-message` is required if `tag` is specified");
+    return;
+  }
+  if (files.length === 0) {
+    core.setFailed("Must specifiy at least one file to stage & commit");
+    return;
+  }
   const [repoOwner, repoName] = repo.split("/");
+  if (!repoOwner || !repoName) {
+    core.setFailed(
+      `Failed to extract repo owner and name from string "${repo}"`
+    );
+    return;
+  }
   const baseUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git`;
   const commitsUrl = `${baseUrl}/commits`;
   const treeUrl = `${baseUrl}/trees`;
@@ -16380,7 +16394,10 @@ async function main() {
         path: file,
         mode: MODES.FILE,
         type: TYPE.BLOB,
-        ...(0, import_fs.existsSync)(file) ? { content: await (0, import_promises.readFile)(file, "utf8") } : { sha: null }
+        ...(0, import_fs.existsSync)(file) ? { content: await (0, import_promises.readFile)(file, "utf8") } : (
+          // if the file doesn't exist setting the sha to null means "deletion"
+          { sha: null }
+        )
       };
     })
   );
@@ -16413,9 +16430,6 @@ ${longMessage}` : message,
     data: { sha: newCommitSha }
   });
   if (tag) {
-    if (!tagMessage) {
-      throw new Error("tag-message is required if tag is specified");
-    }
     const {
       data: { sha: newTagSha }
     } = await axios_default({
@@ -16442,11 +16456,7 @@ ${longMessage}` : message,
 }
 main().catch((e) => {
   const formattedError = JSON.stringify(
-    {
-      e,
-      eStr: `${e}`,
-      eJson: JSON.stringify(e)
-    },
+    { e, eStr: `${e}`, eJson: JSON.stringify(e) },
     null,
     2
   );
