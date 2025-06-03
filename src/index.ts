@@ -3,6 +3,10 @@
  * Originally based on https://gist.github.com/quilicicf/41e241768ab8eeec1529869777e996f0
  *
  */
+declare global {
+  var packageVersion: string;
+}
+
 import { getInput, getMultilineInput, setFailed } from "@actions/core";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
@@ -106,6 +110,8 @@ async function main(): Promise<void> {
   const getHeaders = {
     Accept: "application/vnd.github.v3+json",
     Authorization: `Bearer ${GITHUB_TOKEN}`,
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": `@saasquatch/git-commit-action@${packageVersion}`,
   };
 
   const postHeaders = {
