@@ -1,3 +1,8 @@
+/**
+ *
+ * Originally based on https://gist.github.com/quilicicf/41e241768ab8eeec1529869777e996f0
+ *
+ */
 import axios from "axios";
 import * as core from "@actions/core";
 import { readFile } from "fs/promises";
@@ -25,7 +30,26 @@ async function main(): Promise<void> {
   const tagMessage = core.getInput("tag-message");
   const files = core.getMultilineInput("files");
 
+  // we'll check this first so that we don't create all the trees & commits
+  // and stuff before erroring out at the tag step
+  if (tag && !tagMessage) {
+    core.setFailed("`tag-message` is required if `tag` is specified");
+    return;
+  }
+
+  if (files.length === 0) {
+    core.setFailed("Must specifiy at least one file to stage & commit");
+    return;
+  }
+
   const [repoOwner, repoName] = repo.split("/");
+
+  if (!repoOwner || !repoName) {
+    core.setFailed(
+      `Failed to extract repo owner and name from string "${repo}"`,
+    );
+    return;
+  }
 
   const baseUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git`;
   const commitsUrl = `${baseUrl}/commits`;
@@ -39,7 +63,7 @@ async function main(): Promise<void> {
     Authorization: `Bearer ${GITHUB_TOKEN}`,
   };
 
-  // Get the sha of the last commit on BRANCH_NAME
+  // Get the sha of the last commit on selected branch
   const {
     data: {
       object: { sha: currentCommitSha },
@@ -62,7 +86,8 @@ async function main(): Promise<void> {
         type: TYPE.BLOB,
         ...(existsSync(file)
           ? { content: await readFile(file, "utf8") }
-          : { sha: null }),
+          : // if the file doesn't exist setting the sha to null means "deletion"
+            { sha: null }),
       };
     }),
   );
@@ -91,7 +116,7 @@ async function main(): Promise<void> {
     },
   });
 
-  // Make BRANCH_NAME point to the created commit
+  // Make the selected branch point to the created commit
   await axios({
     url: refUrl,
     method: "POST",
@@ -100,10 +125,8 @@ async function main(): Promise<void> {
   });
 
   if (tag) {
-    if (!tagMessage) {
-      throw new Error("tag-message is required if tag is specified");
-    }
-
+    // Create a new tag object pointing to the commit we just made
+    // and with the specified tag + message
     const {
       data: { sha: newTagSha },
     } = await axios({
@@ -118,6 +141,7 @@ async function main(): Promise<void> {
       },
     });
 
+    // Create a new tag ref pointing to the tag object we just made
     await axios({
       url: tagRefUrl,
       method: "POST",
@@ -132,11 +156,7 @@ async function main(): Promise<void> {
 
 main().catch((e) => {
   const formattedError = JSON.stringify(
-    {
-      e,
-      eStr: `${e}`,
-      eJson: JSON.stringify(e),
-    },
+    { e, eStr: `${e}`, eJson: JSON.stringify(e) },
     null,
     2,
   );
