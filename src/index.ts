@@ -10,6 +10,7 @@ declare global {
 import { getInput, getMultilineInput, setFailed } from "@actions/core";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
+import { chdir } from "process";
 import { parseAsync, z } from "zod/v4-mini";
 import type { $ZodType, output as SchemaOutput } from "zod/v4/core";
 
@@ -79,6 +80,7 @@ async function main(): Promise<void> {
   const longMessage = getInput("long-message");
   const tag = getInput("tag");
   const tagMessage = getInput("tag-message");
+  const workingDir = getInput("working-directory");
   const files = getMultilineInput("files");
 
   // we'll check this first so that we don't create all the trees & commits
@@ -98,6 +100,18 @@ async function main(): Promise<void> {
   if (!repoOwner || !repoName) {
     setFailed(`Failed to extract repo owner and name from string "${repo}"`);
     return;
+  }
+
+  if (workingDir) {
+    try {
+      chdir(workingDir);
+    } catch (e) {
+      setFailed(
+        `Failed to change to working-directory "${workingDir}": ${
+          e instanceof Error ? e.message : e
+        }`,
+      );
+    }
   }
 
   const baseUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git`;

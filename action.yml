@@ -22,6 +22,9 @@ inputs:
   branch:
     description: "Branch to commit to"
     required: true
+  working-directory:
+    description: "Working directory of the `files` input"
+    required: false
 outputs:
   success:
     description: "Whether or not the commits succeeded"
