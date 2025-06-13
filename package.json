@@ -1,6 +1,8 @@
 {
   "name": "ssqt-git-commit-action",
   "version": "0.0.13",
+  "author": "ReferralSaaSquatch.com, Inc.",
+  "license": "MIT",
   "scripts": {
     "build": "node build.js"
   },
