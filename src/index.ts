@@ -10,6 +10,7 @@ declare global {
 import { getInput, getMultilineInput, setFailed } from "@actions/core";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
+import { join } from "path";
 import { chdir } from "process";
 import { parseAsync, z } from "zod/v4-mini";
 import type { $ZodType, output as SchemaOutput } from "zod/v4/core";
@@ -81,7 +82,7 @@ async function main(): Promise<void> {
   const tag = getInput("tag");
   const tagMessage = getInput("tag-message");
   const workingDir = getInput("working-directory");
-  const files = getMultilineInput("files");
+  const filesInput = getMultilineInput("files");
 
   // we'll check this first so that we don't create all the trees & commits
   // and stuff before erroring out at the tag step
@@ -90,7 +91,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (files.length === 0) {
+  if (filesInput.length === 0) {
     setFailed("Must specifiy at least one file to stage & commit");
     return;
   }
@@ -102,17 +103,9 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (workingDir) {
-    try {
-      chdir(workingDir);
-    } catch (e) {
-      setFailed(
-        `Failed to change to working-directory "${workingDir}": ${
-          e instanceof Error ? e.message : e
-        }`,
-      );
-    }
-  }
+  const files = workingDir
+    ? filesInput.map((file) => join(workingDir, file))
+    : filesInput;
 
   const baseUrl = `https://api.github.com/repos/${repoOwner}/${repoName}/git`;
   const commitsUrl = `${baseUrl}/commits`;
