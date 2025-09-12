@@ -9,8 +9,9 @@ esbuild.build({
   entryPoints: ["src/index.ts"],
   bundle: true,
   minify: true,
+  keepNames: true,
   platform: "node",
   define: { packageVersion },
-  target: "node20",
+  target: "node24",
   outdir: "dist",
 });

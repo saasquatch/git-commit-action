@@ -11,15 +11,8 @@ import { getInput, getMultilineInput, setFailed } from "@actions/core";
 import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { join } from "path";
-import { chdir } from "process";
 import { parseAsync, z } from "zod/v4-mini";
 import type { $ZodType, output as SchemaOutput } from "zod/v4/core";
-
-// FIXME: once Node 22 is available on GitHub Actions `undici` will be included
-// in the Node runtime by default and we can uninstall this dependency
-//
-// https://nodejs.org/en/learn/getting-started/fetch
-import { request, type Dispatcher } from "undici";
 
 const MODES = { FILE: "100644", FOLDER: "040000" };
 const TYPE = { BLOB: "blob", TREE: "tree", COMMIT: "commit" };
@@ -41,27 +34,27 @@ const newShaSchema = z.object({
 });
 
 async function parseRes<T extends $ZodType>(
-  res: Dispatcher.ResponseData<null>,
+  res: Response,
   url: string,
   schema: T,
 ): Promise<SchemaOutput<T>> {
   return new Promise((resolve, reject) => {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      res.body
+    if (res.status >= 200 && res.status < 300) {
+      res
         .json()
         .then((body) => parseAsync(schema, body))
         .then((parsed) => resolve(parsed));
     } else {
-      res.body
+      res
         .text()
         .then((text) => {
           reject(
-            `Request to ${url} failed: invalid status ${res.statusCode}: ${text}`,
+            `Request to ${url} failed: invalid status ${res.status}: ${text}`,
           );
         })
         .catch(() => {
           reject(
-            `Request to ${url} failed: invalid status ${res.statusCode} (text parsing failed)`,
+            `Request to ${url} failed: invalid status ${res.status} (text parsing failed)`,
           );
         });
     }
@@ -129,7 +122,7 @@ async function main(): Promise<void> {
   // Get the sha of the last commit on selected branch
   const {
     object: { sha: currentCommitSha },
-  } = await request(refUrl, { headers: getHeaders }).then((res) =>
+  } = await fetch(refUrl, { headers: getHeaders }).then((res) =>
     parseRes(res, refUrl, branchRefSchema),
   );
 
@@ -138,7 +131,7 @@ async function main(): Promise<void> {
 
   const {
     tree: { sha: treeSha },
-  } = await request(currentCommitUrl, { headers: getHeaders }).then((res) =>
+  } = await fetch(currentCommitUrl, { headers: getHeaders }).then((res) =>
     parseRes(res, currentCommitUrl, currentCommitSchema),
   );
 
@@ -157,14 +150,14 @@ async function main(): Promise<void> {
   );
 
   // Create a tree to edit the content of the repository
-  const { sha: newTreeSha } = await request(treeUrl, {
+  const { sha: newTreeSha } = await fetch(treeUrl, {
     method: "POST",
     headers: postHeaders,
     body: JSON.stringify({ base_tree: treeSha, tree: treeInput }),
   }).then((res) => parseRes(res, treeUrl, newShaSchema));
 
   // Create a commit that uses the tree created above
-  const { sha: newCommitSha } = await request(commitsUrl, {
+  const { sha: newCommitSha } = await fetch(commitsUrl, {
     method: "POST",
     headers: postHeaders,
     body: JSON.stringify({
@@ -175,7 +168,7 @@ async function main(): Promise<void> {
   }).then((res) => parseRes(res, commitsUrl, newShaSchema));
 
   // Make the selected branch point to the created commit
-  await request(refUrl, {
+  await fetch(refUrl, {
     method: "POST",
     headers: postHeaders,
     body: JSON.stringify({ sha: newCommitSha }),
@@ -184,7 +177,7 @@ async function main(): Promise<void> {
   if (tag) {
     // Create a new tag object pointing to the commit we just made
     // and with the specified tag + message
-    const { sha: newTagSha } = await request(tagObjectUrl, {
+    const { sha: newTagSha } = await fetch(tagObjectUrl, {
       method: "POST",
       headers: postHeaders,
       body: JSON.stringify({
@@ -196,7 +189,7 @@ async function main(): Promise<void> {
     }).then((res) => parseRes(res, tagObjectUrl, newShaSchema));
 
     // Create a new tag ref pointing to the tag object we just made
-    await request(tagRefUrl, {
+    await fetch(tagRefUrl, {
       method: "POST",
       headers: postHeaders,
       body: JSON.stringify({
