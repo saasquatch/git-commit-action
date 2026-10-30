@@ -7,10 +7,10 @@ declare global {
   var packageVersion: string;
 }
 
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { getInput, getMultilineInput, setFailed } from "@actions/core";
-import { existsSync } from "fs";
-import { readFile } from "fs/promises";
-import { join } from "path";
 import { parseAsync, z } from "zod/v4-mini";
 import type { $ZodType, output as SchemaOutput } from "zod/v4/core";
 
