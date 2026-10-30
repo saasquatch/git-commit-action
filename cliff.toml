@@ -33,8 +33,7 @@ footer = """
     {% if release.version -%}
         {% if release.previous.version -%}
             [{{ release.version | trim_start_matches(pat="v") }}]: \
-                https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}\
-                    /compare/{{ release.previous.version }}..{{ release.version }}
+                https://github.com/saasquatch/git-commit-action/compare/{{ release.previous.version }}..{{ release.version }}
         {% endif -%}
     {% else -%}
         [unreleased]: https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}\
